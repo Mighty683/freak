@@ -1,63 +1,68 @@
 import {
   CreateElementProps,
   CreateRootFunction,
-  RenderContext,
-  RenderFunctionCallback,
+  ComponentContext,
   RenderNode,
+  RenderContext,
 } from "./types";
 
-const createContext = (rootElement: HTMLElement): RenderContext => {
+const createContext = (rootElement: HTMLElement): ComponentContext => {
   const rootFunctionRef = () => {};
   const rootNode: RenderNode = {
     currentElement: rootElement,
     functionRef: rootFunctionRef,
   };
-
-  const context: RenderContext = {
+  const renderContext: RenderContext = {
     currentNode: rootNode,
+  };
+
+  const componentContext: ComponentContext = {
     state: <T>(initialValue: T): [T, (newValue: T) => void] => {
+      const renderNode = renderContext.currentNode;
       let stateValue = initialValue;
       const setState = (newValue: T) => {
         stateValue = newValue;
+        renderNode.functionRef(componentContext, renderContext);
       };
       return [stateValue, setState];
     },
     render: async component => {
       const newRenderNode: RenderNode = {
-        currentElement: context.currentNode.currentElement,
+        currentElement: renderContext.currentNode.currentElement,
         functionRef: component,
       };
+      if (renderContext.currentNode) {
+        renderContext.currentNode.child = newRenderNode;
+        renderContext.currentNode = newRenderNode;
+      } else {
+        renderContext.currentNode = newRenderNode;
+      }
       const renderPromise = new Promise<void>(async resolve => {
-        const child = await component(context);
+        const child = await component(componentContext, renderContext);
         if (child instanceof Function) {
-          await child(context);
+          await componentContext.render(child);
         }
         resolve();
       });
-      context.renderPromise = renderPromise;
+      componentContext.renderPromise = renderPromise;
       await renderPromise
         .catch(() => {
           // TODO: handle errors
         })
         .finally(() => {
-          context.renderPromise = undefined;
+          componentContext.renderPromise = undefined;
         });
-      newRenderNode.currentElement = context.currentNode.currentElement;
-      if (context.currentNode) {
-        context.currentNode.child = newRenderNode;
-        context.currentNode = newRenderNode;
-      } else {
-        context.currentNode = newRenderNode;
-      }
     },
-  } as RenderContext;
+  } as ComponentContext;
 
-  return context;
+  return componentContext;
 };
 
 export const createRoot: CreateRootFunction = async config => {
   const rootContext = createContext(config.element);
-  await rootContext.render(renderContext => config.renderRoot(renderContext));
+  await rootContext.render(componentContext =>
+    config.renderRoot(componentContext)
+  );
   return {
     renderContext: rootContext,
     rootElement: config.element,
@@ -65,10 +70,8 @@ export const createRoot: CreateRootFunction = async config => {
 };
 
 export const renderElement = (props: CreateElementProps) => {
-  const renderElementFunction: RenderFunctionCallback = async (
-    renderContext: RenderContext
-  ) => {
-    renderContext.render(() => {
+  const renderElementFunction = async (componentContext: ComponentContext) => {
+    componentContext.render((_, renderContext) => {
       const element = document.createElement(props.tag);
       if (props.attributes) {
         for (const [key, value] of Object.entries(props.attributes)) {

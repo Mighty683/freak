@@ -54,6 +54,22 @@ describe("rendering", () => {
         });
         expect(document.body.querySelector("#async-section")).not.toBeNull();
       });
+      it("should pass props between component functions", async () => {
+        const parentComponentFunction: ComponentFunction = () => {
+          return childComponentFunction("prop-value");
+        };
+        const childComponentFunction = (prop: string) => {
+          return renderElement({
+            tag: "div",
+            attributes: { id: prop },
+          });
+        };
+        await createRoot({
+          element,
+          renderRoot: renderContext => parentComponentFunction(renderContext),
+        });
+        expect(document.body.querySelector("#prop-value")).not.toBeNull();
+      });
     });
 
     describe("stateful rendering", () => {
@@ -79,6 +95,7 @@ describe("rendering", () => {
         const root = await createRoot({
           element,
           renderRoot: renderContext =>
+            // TODO: solve synchronous component
             customComponentFunction(renderContext, true),
         });
         expect(

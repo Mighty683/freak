@@ -1,11 +1,13 @@
 export type DefaultDynamicContext = undefined;
-export type RenderContext<TreeContext = DefaultDynamicContext> = {
+export type ComponentContext<TreeContext = DefaultDynamicContext> = {
   renderPromise?: Promise<void>;
+} & ComponentAPI<TreeContext>;
+export type RenderContext = {
   currentNode: RenderNode;
-} & RenderAPI<TreeContext>;
+};
 export type PromiseWithType<T> = Promise<T> | T;
 export type PromiseWithVoid = PromiseWithType<void>;
-export type RenderAPI<RenderApiTreeContext = DefaultDynamicContext> = {
+export type ComponentAPI<RenderApiTreeContext = DefaultDynamicContext> = {
   // TODO: implement
   mount(
     callback: () => PromiseWithVoid | (() => PromiseWithVoid)
@@ -13,24 +15,27 @@ export type RenderAPI<RenderApiTreeContext = DefaultDynamicContext> = {
   // TODO: implement
   dynamicContext<
     DynamicContext = RenderApiTreeContext
-  >(): RenderContext<DynamicContext>["dynamicContext"];
+  >(): ComponentContext<DynamicContext>["dynamicContext"];
   // TODO: implement
   // TODO: How connect state with render closure?
   state<T>(initialValue: T): [T, (newValue: T) => void];
   render(
     callback: RenderFunctionCallback<RenderApiTreeContext>
-  ): PromiseWithVoid;
+  ):
+    | PromiseWithVoid
+    | PromiseWithType<RenderFunctionCallback<RenderApiTreeContext>>;
 };
 
-export type RenderFunctionReturn<DynamicContext = DefaultDynamicContext> =
+export type ComponentFunctionReturn<DynamicContext = DefaultDynamicContext> =
   | PromiseWithVoid
   | PromiseWithType<RenderFunctionCallback<DynamicContext>>;
 export interface RenderFunctionCallback<
   DynamicContext = DefaultDynamicContext
 > {
   (
-    renderContext: RenderContext<DynamicContext>
-  ): RenderFunctionReturn<DynamicContext>;
+    componentContext: ComponentContext,
+    renderContext: RenderContext
+  ): ComponentFunctionReturn<DynamicContext>;
   displayName?: string;
 }
 export interface ComponentFunction<
@@ -39,9 +44,9 @@ export interface ComponentFunction<
 > {
   (
     ...args: Props extends undefined
-      ? [renderContext: RenderContext<DynamicContext>]
-      : [renderContext: RenderContext<DynamicContext>, props: Props]
-  ): RenderFunctionReturn<DynamicContext>;
+      ? [renderContext: ComponentContext<DynamicContext>]
+      : [renderContext: ComponentContext<DynamicContext>, props: Props]
+  ): ComponentFunctionReturn<DynamicContext>;
   displayName?: string;
 }
 /**
@@ -60,7 +65,7 @@ export type CreateRootConfig<InitialContext = unknown> = {
   initialContext?: InitialContext;
 };
 export type CreateRootReturn = {
-  renderContext: RenderContext;
+  renderContext: ComponentContext;
   rootElement: HTMLElement;
 };
 export type CreateRootFunction<InitialDynamicContext = DefaultDynamicContext> =
