@@ -74,6 +74,7 @@ export type CreateRootFunction<InitialDynamicContext = DefaultDynamicContext> =
   ) => PromiseWithType<CreateRootReturn>;
 export type RenderNode = {
   child?: RenderNode;
+  state: Record<symbol, [any, (newValue: any) => void]>;
   currentElement: HTMLElement;
   functionRef: Function;
 };

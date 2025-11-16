@@ -10,6 +10,7 @@ const createContext = (rootElement: HTMLElement): ComponentContext => {
   const rootFunctionRef = () => {};
   const rootNode: RenderNode = {
     currentElement: rootElement,
+    state: {},
     functionRef: rootFunctionRef,
   };
   const renderContext: RenderContext = {
@@ -19,17 +20,30 @@ const createContext = (rootElement: HTMLElement): ComponentContext => {
   const componentContext: ComponentContext = {
     state: <T>(initialValue: T): [T, (newValue: T) => void] => {
       const renderNode = renderContext.currentNode;
-      let stateValue = initialValue;
+      // TODO: How retrieve state between renders?
+      const stateSymbol = Symbol("state");
+      let stateValue = (renderNode.state[stateSymbol] as T) || initialValue;
       const setState = (newValue: T) => {
         stateValue = newValue;
-        renderNode.functionRef(componentContext, renderContext);
+
+        renderNode.state[stateSymbol] = [
+          newValue,
+          renderNode.state[stateSymbol][1],
+        ];
+        componentContext.render(renderNode.functionRef as any);
       };
-      return [stateValue, setState];
+      const stateArray: [T, (newValue: T) => void] = [stateValue, setState];
+      if (!(stateSymbol in renderNode.state)) {
+        renderNode.state[stateSymbol] = stateArray;
+      }
+
+      return stateArray;
     },
     render: async component => {
       const newRenderNode: RenderNode = {
         currentElement: renderContext.currentNode.currentElement,
         functionRef: component,
+        state: {},
       };
       if (renderContext.currentNode) {
         renderContext.currentNode.child = newRenderNode;
